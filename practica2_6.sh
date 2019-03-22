@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir=$( fin $HOME -maxdepth 1 -type d -name "bin[a-zZ-A0-9][a-zZ-A0-9][a-zZ-A0-9]")
+dir=$( find $HOME -maxdepth 1 -type d -name "bin[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]")
 fecha=""
 destino=$HOME"/binTSM"
 for i in $dir
@@ -18,12 +18,12 @@ do
         fi
     fi
 done
-if test -z $fecha ;
+if [ -z $fecha ]
 then
     mkdir $destino
-    echo "Se ha creado el directorio $destino ."
+    echo "Se ha creado el directorio $destino"
 fi
-echo "Directorio destino de copia: $destino "
+echo "Directorio destino de copia: $destino"
 
 numero=0
 
@@ -36,8 +36,8 @@ done
 
 if [ $numero -eq 0 ]
 then    
-    echo "No se ha copiado ningun fichero."
+    echo "No se ha copiado ningun archivo"
 else
-    echo "Se han copiado $numero archivos."
+    echo "Se han copiado $numero archivos"
 fi 
 exit 0

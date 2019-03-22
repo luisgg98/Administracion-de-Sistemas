@@ -1,4 +1,6 @@
 #!/bin/bash
+oldIFS=$IFS
+IFS=$'\n'
 if [ $# -eq 1 ]
 then
         if [ -f $1 ]
@@ -10,6 +12,7 @@ then
         echo "$@ no existe"
         fi
 else
-    echo "Sintaxis: $0 <nombre_archivo>"
+    echo "Sintaxis: practica2_3.sh <nombre_archivo>"
 fi
+IFS=$oldIFS
 exit 0
