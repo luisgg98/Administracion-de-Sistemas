@@ -1,3 +1,8 @@
+
+#Autores 
+#Luis García Garcés 739202
+#Saúl Flores Benavente 755769
+
 #!/bin/bash
 
 dir=$( find $HOME -maxdepth 1 -type d -name "bin[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]")

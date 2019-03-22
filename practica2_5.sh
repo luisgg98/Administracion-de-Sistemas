@@ -1,3 +1,8 @@
+
+#Autores 
+#Luis García Garcés 739202
+#Saúl Flores Benavente 755769
+
 #!/bin/bash
 oldIFS=$IFS
 IFS=$'\n'

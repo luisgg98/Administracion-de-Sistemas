@@ -1,3 +1,8 @@
+
+#Autores 
+#Luis García Garcés 739202
+#Saúl Flores Benavente 755769
+
 #!/bin/bash
 
 echo -n "Introduzca una tecla: "
