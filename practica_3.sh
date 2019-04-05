@@ -1,15 +1,18 @@
 #!/bin/bash
+#Saúl Flores Benavente 755769
+#Luis García Garcés 739202
 
 leerBorrar(){
     oldIFS=$IFS
-    IFS=,
+    IFS=','
     mkdir -p /extra/backup
     while read nombre ignore
     do
         id $nombre 2> /dev/null > /dev/null
         if [ $? -eq 0 ]
         then
-            tar -cvf /extra/backup/$nombre.tar /home/$nombre 2> /dev/null > /dev/null
+            uhome=$(cat /etc/passwd | egrep "$nombre" | grep -o ":/[^:]*:" | tr -d ':')
+            tar -cvf /extra/backup/$nombre.tar $uhome 2> /dev/null > /dev/null
             if [ $? -eq 0 ]
             then
                 userdel -r $nombre 2> /dev/null
@@ -21,33 +24,25 @@ leerBorrar(){
 }
 
 leerInsertar(){
-    i=1815
     oldIFS=$IFS
     IFS=,
-    IFS=$oldIFS 
     while read nombre contrasena nomC
     do
-        if [[ -z $nombre || -z $contrasena || -z $nomC ]]
+        if [[ -z "$nombre" || -z "$contrasena" || -z "${nomC}" ]]
         then
             echo "Campo invalido"
         else
-            useradd -c "$nomC" $nombre -m -k /etc/skel
+            useradd -c "$nomC" $nombre -m -k /etc/skel -K UID_MIN=1815 -U 2> /dev/null
             anyadido=$?
             if [ $anyadido -eq 9 ]
             then
                     echo "El usuario $nombre ya existe"
             elif [ $anyadido -eq 0 ]
             then
-                usermod -g $nombre $nombre 2> /dev/null
+                usermod -f0 $nombre
                 echo "${nombre}:$contrasena" | chpasswd
                 passwd -x30 $nombre > /dev/null
-                n=$(id -u $nombre)
-                while [ $n -lt 1815 ]
-                do
-                        usermod -u $i $nombre 2> /dev/null
-                        i=$(i+1)
-                        n=$(id -u $nombre)
-                done
+     
                 echo "$nomC ha sido creado"
             fi
         fi
@@ -70,11 +65,10 @@ then
         then
             leerBorrar $2
         else
-            echo "Opcion invalida"  
+            echo "Opcion invalida" >&2
         fi
     fi
 else
     echo "Este script necesita privilegios de administracion"
     exit 1
 fi
-        
