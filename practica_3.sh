@@ -6,16 +6,56 @@ leerBorrar(){
     mkdir -p /extra/backup
     while read nombre ignore
     do
-        echo "$nombre"
-        tar -cvf /extra/backup/{$nombre}.tar /home/$home 2> /dev/null
+        id $nombre 2> /dev/null > /dev/null
         if [ $? -eq 0 ]
         then
-            echo "HOLA"
-             userdel -r $nombre 2> /dev/null
+            tar -cvf /extra/backup/$nombre.tar /home/$nombre 2> /dev/null > /dev/null
+            if [ $? -eq 0 ]
+            then
+                userdel -r $nombre 2> /dev/null
+            fi
+        fi
+        
+    done < $1
+    IFS=$oldIFS      
+}
+
+leerInsertar(){
+    i=1815
+    oldIFS=$IFS
+    IFS=,
+    IFS=$oldIFS 
+    while read nombre contrasena nomC
+    do
+        if [[ -z $nombre || -z $contrasena || -z $nomC ]]
+        then
+            echo "Campo invalido"
+        else
+            useradd -c "$nomC" $nombre -m -k /etc/skel
+            anyadido=$?
+            if [ $anyadido -eq 9 ]
+            then
+                    echo "El usuario $nombre ya existe"
+            elif [ $anyadido -eq 0 ]
+            then
+                usermod -g $nombre $nombre 2> /dev/null
+                echo "${nombre}:$contrasena" | chpasswd
+                passwd -x30 $nombre > /dev/null
+                n=$(id -u $nombre)
+                while [ $n -lt 1815 ]
+                do
+                        usermod -u $i $nombre 2> /dev/null
+                        i=$(i+1)
+                        n=$(id -u $nombre)
+                done
+                echo "$nomC ha sido creado"
+            fi
         fi
     done < $1
     IFS=$oldIFS      
 }
+
+
 
 if [ $(id -u) -eq 0 ]
 then
@@ -25,7 +65,7 @@ then
     else
         if [ $1 == "-a" ]
         then
-            //
+            leerInsertar $2
         elif [ $1 == "-s" ]
         then
             leerBorrar $2
