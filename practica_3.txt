@@ -1,0 +1,40 @@
+Luis García Garcés , 739202
+Saúl Flores Benavente ,755769
+
+Inicialmente para leer el contenido del fichero separado por comas tuvimos que cambiar el IFS.
+
+Para borrar un usuario lo primero que hacemos es comprobar su existencia con el comando 
+id $nombre 2> /dev/null > /dev/null, cuyas salidas estándar y de error quedan desbiadas
+a null para no ser mostradas.
+
+Para evitar mostrar más información de la que nos piden en el enunciado gran parte de los
+comandos escritos en este script tienen sus salidas estándar y de error desbiadas a null.
+
+Una vez comprobada su existencia guardamos el fichero home del usuario.
+Para esto leemos el fichero /etc/passwd hasta encontrar cuál es el nombre de su
+directorio home, gracias a los filtros:
+uhome=$(cat /etc/passwd | egrep "$nombre" | grep -o ":/[^:]*:" | tr -d ':')
+
+Posteriormente intentamos crear el tar.
+En el caso de haber podido crear el tar correctamente el usuario será eliminado,
+en caso contrario pasará al siguiente usuario sin haber borrado el anterior.
+
+Para añadir un usuario lo primero que hcemos es identificar que ninguno de los
+tres campos leídos es la cadena vacía, para ello hacemos lo siguiente:
+ if [[ -z "$nombre" || -z "$contrasena" || -z "${nomC}" ]]
+En el caso de que alguno fuera nulo, acabaría el proceso y pasaría al siguiente
+usuario.
+Para agregar un usuario nuevo al mismo grupo que su nombre y con un UID mayor de
+1815, hemos agregado el siguiente comando.
+useradd -c "$nomC" $nombre -m -k /etc/skel -K UID_MIN=1815 -U 2> /dev/null
+
+Useradd devuelve el número 9 en el caso de que el usuario ya existiera.
+Por lo tanto comprobamos que este no haya devuelto 9, en el caso de hacerlo
+mostramos por pantalla que el usuario ya existe.
+
+Para establecer un período de caducidad a su contraseña
+le proporcionamos la contraseña del usuario a chpasswd.
+echo "${nombre}:$contrasena" | chpasswd
+para modificarla posteriormente en:
+passwd -x30 $nombre > /dev/null
+
