@@ -1,0 +1,75 @@
+############################
+# Luis García Garcés 739202
+# Saúl Flores Benavente 755769
+# Practica 4 
+############################
+
+
+-------
+Parte 2
+-------
+1) Instalar sudo:
+En el terminal -> apt-get  install sudo
+
+2)Inicialmente tuvimos que añadir el usuario "as" con el script de la práctica 3 y cambiar su shell a /bin/bash.
+
+3)Instalar net-tools:
+sudo apt-get install net-tools
+
+
+4)Configurar las interfaces:
+Editar el fichero -> "/etc/network/interfaces" añadiendo una nueva interfaz:
+
+Máquina virtual que hará de host:
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.56.2
+netmask 255.255.255.0
+
+El address no termina en 1 debido a problemas que ocasionaba Putty.
+
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.56.3
+netmask 255.255.255.0
+
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.56.4
+netmask 255.255.255.0
+
+
+5)Comprobacion del funcionamiento:
+Mediante el comando ping + la direccion IP
+
+6)Instalacion del servidor SSH:
+sudo apt-get install openssh-server 
+Esto ha de añadirse en todas las máquinas virtuales.
+
+
+
+7)Configuracion del servidor SSH:
+Editar el fichero -> "/etc/ssh/sshd_config" aÃ±adiendo "PermitRootLogin no"
+Esto ha de añadirse en todas las máquinas virtuales.
+
+8)Comprobacion del servidor SSH:
+En el terminal -> ssh as@IP 'echo "PRUEBA"'
+
+-------
+Parte 3
+-------
+Para que se pueda ejecutar un cliente SSH sin necesidad de password, para ellos
+hacemos:
+-> En la maquina local escribimos:
+ssh-keygen -t ed25519
+esto nos generara una llave publica
+-> Escribir que el archivo donde queremos guardar sea: id_as_ed25519
+-> En la maquina local escribimos:
+ssh-copy-id as@192.168.56.3
+ssh-copy-id as@192.168.56.4
+De esta forma les enviamos la clave a las máquinas remotas.
+
+->Comprobar que el Identity File es el correspondiente en el "/etc/ssh/ssh_config"
+En nuestro caso para poder ejecutar el script con sudo tuvimos que escribir: /home/as/.ssh/id_as_ed25519
+Con esto lo que hacemos es darle la llave publica de la maquina local a la maquina
+remota.
