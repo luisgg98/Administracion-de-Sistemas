@@ -28,17 +28,17 @@ leerBorrar(){ #Opcion eliminar usuario
 		then
 			echo "$ip no es accesible"
 		else
-			ssh -n user@$ip "sudo mkdir -p /extra/backup"
+			ssh -n as@$ip "sudo mkdir -p /extra/backup"
 			while read nombre ignore #Leemos los nombres para eliminar
 			do
-				ssh -n user@$ip "id $nombre 2> /dev/null > /dev/null"
+				ssh -n as@$ip "id $nombre 2> /dev/null > /dev/null"
 				if [ $? -eq 0 ]
 				then
-					uhome=$(ssh -n user@$ip "cat /etc/passwd | grep "${nombre}:" | cut -d ':' -f 6") #Se comprueba cual es un directorio home/usuario
-					ssh -n user@$ip "sudo tar -cvf /extra/backup/${nombre}.tar $uhome 2> /dev/null > /dev/null" #Se hace el backup 
+					uhome=$(ssh -n as@$ip "cat /etc/passwd | grep "${nombre}:" | cut -d ':' -f 6") #Se comprueba cual es un directorio home/usuario
+					ssh -n as@$ip "sudo tar -cvf /extra/backup/${nombre}.tar $uhome 2> /dev/null > /dev/null" #Se hace el backup 
 					if [ $? -eq 0 ]
 					then
-						ssh -n user@$ip "sudo userdel -r $nombre 2> /dev/null"
+						ssh -n as@$ip "sudo userdel -r $nombre 2> /dev/null"
 					fi
 				fi
 			done < $1
@@ -63,16 +63,16 @@ leerInsertar(){ #Opcion añadir usuario
 				then
 					echo "Campo invalido"
 				else
-					ssh -n  user@$ip "sudo useradd -c "$nomC" $nombre -m -k /etc/skel -K UID_MIN=1815 -U 2> /dev/null"
+					ssh -n  as@$ip "sudo useradd -c "$nomC" $nombre -m -k /etc/skel -K UID_MIN=1815 -U 2> /dev/null"
 					anyadido=$?
 					if [ $anyadido -eq 9 ]
 					then
 							echo "El usuario $nombre ya existe"
 					elif [ $anyadido -eq 0 ]
 					then
-						ssh -n user@$ip "sudo usermod -f0 $nombre"
-						ssh -n user@$ip "echo "${nombre}:$contrasena" | sudo chpasswd"
-						ssh -n user@$ip "sudo passwd -x30 $nombre > /dev/null"
+						ssh -n as@$ip "sudo usermod -f0 $nombre"
+						ssh -n as@$ip "echo "${nombre}:$contrasena" | sudo chpasswd"
+						ssh -n as@$ip "sudo passwd -x30 $nombre > /dev/null"
 						echo "$nomC ha sido creado"
 					fi
 				fi
