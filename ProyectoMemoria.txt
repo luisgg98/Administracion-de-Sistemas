@@ -1,0 +1,85 @@
+Planteamiento:
+Red entre debian1 y debian 2 192.168.1.0
+Debian 1 192.168.1.1
+Debian 2 192.168.1.2
+
+Red entre debian1,3,4 y 6 192.168.2.0
+Debian 1 192.168.2.1
+Debian 3 y 4 red proporcionada por dhcp
+Debian 6 Ip fija 192.168.2.6
+
+Red entre debian 5 y debian 6 192.168.3.0
+Debian 5 192.168.3.5
+
+
+Debian 6 192.168.3.6
+
+
+En las 3 la netmask es 255.255.255.0
+Configurar los ficheros interfaces de las ips estaticas:
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.3.6
+netmask 255.255.255.0
+
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.1.2
+netmask 255.255.255.0
+
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.1.1
+netmask 255.255.255.0
+
+auto enp0s9
+iface enp0s9 inet static
+address 192.168.2.1
+netmask 255.255.255.0
+
+Hay algunas (las que solo tienen una interfaz) en las que 
+la interfaz va a ser la siguiente:
+
+auto enp0s3
+iface enp0s3 inet static
+address 192.168.3.5
+netmask 255.255.255.0
+
+Instalar ifconfig
+sudo apt-get install net-tools
+
+Inicalmente tuve que instalar isc-dhcp-server:
+sudo apt-get install isc-dhcp-sever
+
+Posteriormente tuve que asociar una ip al la intefaz de red
+a la que iba a asociar ese servidor dhcp:
+ifconfig enp0s8 192.168.2.1
+
+Para fijar la interfaz al servidor dhcp hay que editar el fichero
+/etc/defaults/isc-dhp-sever de esta forma:
+INTERFACES="enp0s8"
+(En el caso de tener Interfacev4 tambien puede hacerse)
+
+A continuación editamos el fichero /etc/dhcp/dhcpd.conf:
+option domain-name "proyecto.org" //Opcional
+Para proporcionar un nombrea al dominio.
+option domain-name-servers 192.168.2.1
+Para asociarle una IP al domino.
+
+Creamos la subred de IPs que asignaremos a debian 3 y debian4:
+subnet 192.168.2.0 netmask 255.255.255.0{
+range 192.168.2.3 192.168.2.20
+}
+Para poder utilizar debian6 siempre como pasarela
+host debian6{
+hardware ethernet "AÑADIR MAC"; //La MAC de la tarjeta de red.
+fixed-address 192.168.1.5;
+}
+De esta forma hemos asociado a debian6 una IP fija.
+En el fichero de Interfaces de los nodos que conectaremos al servidor.
+
+allow-hotplug enp0s3
+iface enp0s3 inet dhcp
+
+En este caso se encuentra en la Interfaz enp0s3 porque debian 3 y debian 4
+solo estan conectadas a una interfaz y en debian 6 es su primera red.
