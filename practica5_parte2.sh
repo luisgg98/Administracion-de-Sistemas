@@ -1,5 +1,7 @@
 #!/bin/bash
-
+#Grupo 422
+#Luis García Garcés 739202
+#Saúl Flores Benavente 755769
 if [ "$#" -ne 1 ]
 then
     echo "Numero de parametros incorrecto"
