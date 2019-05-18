@@ -18,4 +18,3 @@ fi
 ssh "$1" "sudo sfdisk -s"
 ssh "$1" "sudo sfdisk -l"
 ssh "$1" "sudo df -hT"
-
