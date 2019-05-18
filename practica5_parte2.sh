@@ -9,7 +9,7 @@ then
 fi
 ip=$(echo "$1" | cut -d '@' -f2)
 
-if ! ping -c1 "$ip"  > /dev/null
+if ! ping -c1 "$ip"  > /dev/null #Comprobamos la accesibilidad de la máquina
 then
     echo "No se puede acceder a la direccion: $ip"
     exit 1

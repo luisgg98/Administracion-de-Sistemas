@@ -1,0 +1,89 @@
+Luis García Garcés 739202
+Saúl Flores Benavente 755769
+
+PARTE 1:
+Inicalmente tuvimos que instalar parted:
+sudo apt-get install parted
+
+Ejecutamos el comando " sudo parted /dev/sdb", apareció
+una consola en la que ejecutamos los siguientes 
+comandos para crear la partición
+
+mkpart P1 ext3 512KiB 16MiB
+align-check optimal
+
+mkpart P2 ext4 16MiB 31MiB
+align-check optimal
+
+Creando así /dev/sdb1 y /dev/sb2.
+
+Posteriormente crearmos los sitemas de fichero:
+sudo mkfs -t ext3 /dev/sdb1
+sudo mkfs -t ext4 /dev/sdb2
+
+Para luego montar lo en los directorios /mnt/sis1 y /mnt/sis2
+que previamente los creamos con mkdir sis1 y mkdir sis2
+
+sudo mount -t ext4 /dev/sdb2 /mnt/sis2
+sudo mount -t ext3 /dev/sdb1 /mnt/sis1
+
+Agregamos a /etc/fstab las siguientes lineas:
+UUID="UUDI de la partición" /mnt/sis1 ext3 errors=remount 0	1
+UUID="UUDI de la partición" /mnt/sis2 ext4 errors=remount 0	1
+
+Habiendo obtenido previamente el UUID de las particiones con
+el comando blkid /dev/sdb1 y blkid /dev/sdb2
+
+PARTE 2:
+Para el segundo script comprobamos que podemos acceder a la máquina que nos proporcionan mediante:
+ping -c1 @ip > /dev/null
+Para finalizar ejecutamos los comandos:
+ssh $1 sudo sfdisk -s
+ssh $1 sudo sfdisk -l
+ssh $1 sudo df -hT
+
+PARTE 3:
+
+Para crear la particion LVM utilizamos el comando interactivo interactivo fdisk /dev/sdb e introducimos
+las siguientes letras.
+n : Para crear una nueva partición.
+Pulsamos 3 veces enter dejando así las opciones predeterminadas de la partición.
+De tal forma que ocupe todo el espacio de la partición.
+p : Para mostrarnos la tabla de particiones
+t : Para cambiar el id por la etiqueta 8e.
+w : Para guardar los cambios
+Así creamos la partición de tipo LVM.
+¿Cuántos volúmenes físicos tendrá el grupo volumen resultante?
+Tendrá 3 volúmenes físicos, ya que inicialmente para crear el grupo volumen
+hemos tenido que crear un volumen físico en la partición /dev/sdc1 y posterior-
+mente añadimos los volúmenes físicos creados sobre las particiones /dev/sdb1 y
+/dev/sdb2.
+Creando el grupo volumen así:
+vgcreate vg_p5 /dev/sdc1 /dev/sdb1 /dev/sdb2
+
+Invocamos el segundo script de la siguiente forma:
+sudo ./practica5_parte3_lv.sh
+Necesitos ejecutar con permisos de administrador para ejecutar correctamente el script.
+Una vez hagamos esto aparecerá lo siguiente:
+">	"
+Hemos intentado imitar un sistema interactivo, habrá que añadir:
+">nombreGrupoVolumen,nombreVolumenLogico,tamaño,tipoSistemaFicheros,directorio"
+Una vez el script se haya ejecutado con estos parámetros nos volverá a mostar ">"
+en el caso de que queramos añadir otro volumen lógico.
+Para salir del script habrá que escribir "quit".
+Dentro del script:
+En el caso de que haya que añadir un nuevo volumen lógico:
+
+sudo lvcreate -L "$tamanyo" --name "$volumenlogico" "$grupovolumen"
+
+sudo mkfs -t "$tsistemaficheros" "$ruta"
+sudo mount -t  "$tsistemaficheros" "$ruta" "$directorio"
+
+ID=$(sudo blkid "$ruta" | cut -d ' ' -f2 | cut -d '=' -f2  )
+
+sudo su -c "echo "$ID $directorio $tsistemaficheros errors=remount 0 2" >> /etc/fstab"
+
+En el caso de que haya que extender el volumen lógico:
+sudo lvextend -L "$tamanyo" "$ruta"
+
+sudo resize2fs "$ruta"
