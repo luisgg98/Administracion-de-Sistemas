@@ -1,3 +1,6 @@
+apt-get install sudo
+apt update
+
 Planteamiento:
 Red entre debian1 y debian 2 192.168.1.0
 Debian 1 192.168.1.1
@@ -76,10 +79,28 @@ hardware ethernet "AÑADIR MAC"; //La MAC de la tarjeta de red.
 fixed-address 192.168.1.5;
 }
 De esta forma hemos asociado a debian6 una IP fija.
-En el fichero de Interfaces de los nodos que conectaremos al servidor.
+En el fichero de Inifterfaces de los nodos que conectaremos al servidor.
 
 allow-hotplug enp0s3
 iface enp0s3 inet dhcp
 
 En este caso se encuentra en la Interfaz enp0s3 porque debian 3 y debian 4
 solo estan conectadas a una interfaz y en debian 6 es su primera red.
+
+En debian1 instalar tcpdump para poder ver el tráfico tcp que circula a través de esta máquina.
+Utilizar  el comando tcp para ver el flujo:
+tcpdump -n -i  INTERFAZ icmp
+
+Para que Debian 1 pueda actuar de router debemos confirmar que esta activo ip_forward.
+Para ello hacemos:
+echo 1 > /proc/sys/net/ipv4/ip_forward
+Y para hacerlo permanente modificamos en fichero:
+/etc/sysctl.conf
+Descomentando la línea net.ipv4.ip_forward=1
+
+Posteriormente ejecutamos los comandos:
+iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
+iptables -A FORWARD -i enp0s8 -j ACCEPT
+****
+La explicacion no tengo ni idea jajaja saludos soy el Chocu
+https://how-to.fandom.com/wiki/How_to_set_up_a_NAT_router_on_a_Linux-based_computer
