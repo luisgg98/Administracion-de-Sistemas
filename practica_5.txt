@@ -81,7 +81,7 @@ sudo mount -t  "$tsistemaficheros" "$ruta" "$directorio"
 
 ID=$(sudo blkid "$ruta" | cut -d ' ' -f2 | cut -d '=' -f2  )
 
-sudo su -c "echo "$ID $directorio $tsistemaficheros errors=remount 0 2" >> /etc/fstab"
+sudo su -c "echo \"$ID $directorio $tsistemaficheros errors=remount 0 2\" >> /etc/fstab"
 
 En el caso de que haya que extender el volumen lógico:
 sudo lvextend -L "$tamanyo" "$ruta"
