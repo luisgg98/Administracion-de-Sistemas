@@ -1,0 +1,54 @@
+Autores:
+Luis García Garcés 739202
+Saúl Flores Benavente 755769
+
+Parte 1
+Inicialmente tenemos que configurar la máquina que recibe la información
+y la máquina que la envía:
+
+Máquina que envía:
+Modificamos el archivo /etc/rsyslog.conf
+y se añade al final del archivo
+local0.info @@192.168.56.2:514
+
+local0 es el tipo de programa.
+info el nivel de prioridad que tiene el mensaje.
+@@ para el protocolo TCP.
+514 es el puerto que utiliza rsyslog.conf
+
+Reiniciamos el servicio de logs: service rsyslog restart
+
+Máquina que recibe la información:
+
+En el fichero /etc/rsyslog.conf 
+descomentamos lo siguiente:
+
+provide TCP syslog reception
+module(load="imtcp")
+input(type="imtcp" port="514")
+
+Al final de este fichero añadimos:
+local0.info /var/log/monitorizacion.log
+de esta forma toda la información de local0.info irá
+a ese fichero.
+
+Para que se ejecute de forma periódica se modifica el fichero
+/etc/crontab y se añade:
+
+* /1 	 * * *  	root 	 /home/as/practica6_parte1.sh >&2 /dev/null
+
+/ Permite que se haga cada minnuto
+Reiniciamos cron: service cron restart
+
+Parte 2
+
+Se instala logcheck: sudo apt-get install logcheck
+Se edita el fichero /etc/logcheck/logcheck.conf
+sudo nano  /etc/logcheck/logcheck.conf
+Añadiendo SENDMAILTO="root"
+
+En /etc/logcheck/logcheck.logfiles se añade la linea /var/log/monitorizacion.log
+
+#Falta por añadir
+agregar reglas a este fichero:
+/etc/logcheck/ignore.d.server/local-rules
