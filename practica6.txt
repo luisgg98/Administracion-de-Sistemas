@@ -33,9 +33,9 @@ de esta forma toda la información de local0.info irá
 a ese fichero.
 
 Para que se ejecute de forma periódica se modifica el fichero
-/etc/crontab y se añade:
+se ejecuta crontab -e y se añade:
 
-* /1 	 * * *  	root 	 /home/as/practica6_parte1.sh >&2 /dev/null
+* * 	 * * *   /home/as/practica6_parte1.sh >&2 /dev/null
 
 / Permite que se haga cada minnuto
 Reiniciamos cron: service cron restart
