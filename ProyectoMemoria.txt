@@ -1,5 +1,6 @@
-apt-get install sudo
-apt update
+Autores:
+Luis García Garcés 739202
+Saúl Flores Benavente 755769
 
 Planteamiento:
 Red entre debian1 y debian 2 192.168.1.0
@@ -13,22 +14,120 @@ Debian 6 Ip fija 192.168.2.6
 
 Red entre debian 5 y debian 6 192.168.3.0
 Debian 5 192.168.3.5
-
-
 Debian 6 192.168.3.6
 
+Todos los comandos se han ejecutado desde el usuario root.
+Inicialmente para disponer de los comandos necesarios para revisar el estado de las interfaces en las
+máquinas instalamos "net-tools"
+apt-get install net-tools
 
-En las 3 la netmask es 255.255.255.0
-Configurar los ficheros interfaces de las ips estaticas:
-auto enp0s8
-iface enp0s8 inet static
-address 192.168.3.6
-netmask 255.255.255.0
+En debian 1 instalar tcpdump para poder ver el tráfico tcp que circula a través de esta máquina.
+Utilizar  el comando tcp para ver el flujo:
+tcpdump -n -i  INTERFAZ icmp
+De esta forma podremos ver los paquetes que circulan por las interfaces de debian 1 y saber
+que todo funciona.
 
-auto enp0s8
-iface enp0s8 inet static
-address 192.168.1.2
-netmask 255.255.255.0
+SERVIDOR DHCP
+Para poder instalar un servidor dhcp es necesario instalar "isc-dhcp-server" en la máquina
+debian 1.
+apt-get install isc-dhcp-sever
+
+Posteriormente tuveimos que asignar una ip a la intefaz de red a la que iba a asociar ese
+servidor dhcp:
+ifconfig enp0s8 192.168.2.1
+
+Para fijar la interfaz al servidor dhcp hay que editar el fichero
+/etc/defaults/isc-dhp-sever de esta forma:
+INTERFACES="enp0s8"
+(En el caso de tener Interfacev4 tambien puede hacerse)
+
+A continuación editamos el fichero /etc/dhcp/dhcpd.conf:
+Creamos la subred de IPs que asignaremos a debian 3 y debian4:
+subnet 192.168.2.0 netmask 255.255.255.0{
+range 192.168.2.5 192.168.2.60;
+option broadcast-address 192.168.2.255;
+option routers 192.168.2.1; //Para establecer la Ip del router
+option domain-name-server 8.8.8.8,8.8.4.4; //DNS del servidor, usamos los del Google
+}
+Para poder utilizar debian6 siempre como pasarela es necesario asignarle una IP fija en el servidor
+host debian6{
+hardware ethernet "AÑADIR MAC"; //La MAC de la tarjeta de red.
+fixed-address 192.168.2.6;
+}
+De esta forma hemos asociado a debian6 una IP fija.
+En el fichero de Interfaces de los nodos que conectaremos al servidor.
+allow-hotplug enp0s3
+iface enp0s3 inet dhcp
+
+En este caso se encuentra en la Interfaz enp0s3 porque debian 3 y debian 4
+solo estan conectadas a una interfaz y en debian 6 es su primera red.
+Las máquinas conectadas al servidor dhcp tiene por default gateway el router de su servidor,se
+conectarán a internet a través de este.
+
+PASARELA DEBIAN 6
+Para que debian 6 actue de pasarela entre debian 1 y debian 5.
+Debian 1 y debian 6 se encuentran conectados a través de la red interna 2,por lo tanto
+en el caso de que a debian 1 le llegue una petición para una máquina la desviará a través
+de debian 6. Para ello tuvimos que añadir a la configuración de la interfaz enp0s9 en debian 1:
+
+up route add -net 192.168.3.0 netmask 255.255.255.0 gw 192.168.2.6
+
+En debian 5 tuvimos que dejar por default gateway a 192.168.3.6 ejecutando el comando:
+route add default gw 192.168.3.6
+
+Para que Debian 6 pueda desviar tráfico a debian 5:
+echo 1 > /proc/sys/net/ipv4/ip_forward
+Y para hacerlo permanente modificamos en fichero:
+/etc/sysctl.conf
+
+CONFIGURACIÓN ROUTER 
+
+Para que Debian 1 pueda actuar de router debemos confirmar que esta activo ip_forward.
+Para ello hacemos:
+echo 1 > /proc/sys/net/ipv4/ip_forward
+Y para hacerlo permanente modificamos en fichero /etc/sysctl.conf descomentando la línea:
+net.ipv4.ip_forward=1
+
+Para permitir que las redes internas tuvieran acceso internet ejecutamos los comandos iptables:
+iptables -t nat -A POSTROUTING -s 192.168.3.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
+iptables -t nat -A POSTROUTING -s 192.168.2.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
+iptables -t nat -A POSTROUTING -s 192.168.1.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
+
+De esta forma todo paquete que sale de la interfaz enp0s3 hacia internet toma la dirección
+ip del router.
+Enmascararamos el tráfico de salida sin perturbar el tráfico original.
+iptables -t nat -A POSTROUTING -j MASQUERADE
+
+Para finalizar rechazamos de forma silenciosa cualquier tipo de tráfico desde enp0s3 (internet) y enp0s10 (HOST)
+que no cumpla los requisitos de este trabajo:
+iptables -A INPUT -i enp0s3 -j DROP			
+iptables -A INPUT -i enp0s10 -j DROP	
+Vease que no estamos denegando cadenas FORWARD por lo tanto las máquinas de las redes internas siguen teniendo acceso
+a internet.
+
+SERVIDOR SSH
+
+En debian 5,inicialmente hay que instalar el servidor SSH para ello ejecutaremos el comando:
+apt-get install openssh-server 
+Configuraremos el servidor para no poder acceder a root desde ssh.Para ello editaremos el fichero
+/etc/ssh/sshd_config añadiendo "PermitRootLogin no" al final del fichero.
+
+En debian 1 configuramos el Firewall:
+
+Para desviar todo el tráfico SSH hacia la máquina Debian 5 debemos ejecutar:
+iptables -t nat -A PREROUTING -i enp0s3 -p tcp -m tcp --dport 22 -j DNAT --to-destination 192.168.3.5:22	//Desde Internet
+iptables -t nat -A PREROUTING -d 192.168.10.10 -i enp0s10 -p tcp -m tcp --dport 22 -j DNAT --to-destination 192.168.3.5:22	//Desde Host
+
+Para permitir conexiones al puerto 22 (SSH) ejecutamos el comando:
+iptables -A FORWARD -d 192.168.3.5 -p tcp --dport 22 -j ACCEPT
+
+iptables -A INPUT -i enp0s3 -p tcp --dport 22 -j ACCEPT	//Permitir trafico SSH desde internet
+iptables -A INPUT -i enp0s10 -p tcp --dport 22 -j ACCEPT//Permitir trafico SSH desde host
+
+
+CONFIGURACIÓN FICHEROS DE INTERFACES
+Ficheros /etc/network/interfaces de cada máquina:
+Debian 1:
 
 auto enp0s8
 iface enp0s8 inet static
@@ -39,68 +138,37 @@ auto enp0s9
 iface enp0s9 inet static
 address 192.168.2.1
 netmask 255.255.255.0
+up route add -net 192.168.3.0 netmask 255.255.255.0 gw 192.168.2.6 //Para utilizarlo de pasarela.
 
-Hay algunas (las que solo tienen una interfaz) en las que 
-la interfaz va a ser la siguiente:
+Debian 2:
+
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.1.2
+netmask 255.255.255.0
+
+Debian 3:
+
+allow-hotplug enp0s3
+iface enp0s3 inet dhcp
+
+Debian 4:
+
+allow-hotplug enp0s3
+iface enp0s3 inet dhcp
+
+Debian 5:
 
 auto enp0s3
 iface enp0s3 inet static
 address 192.168.3.5
 netmask 255.255.255.0
-
-Instalar ifconfig
-sudo apt-get install net-tools
-
-Inicalmente tuve que instalar isc-dhcp-server:
-sudo apt-get install isc-dhcp-sever
-
-Posteriormente tuve que asociar una ip al la intefaz de red
-a la que iba a asociar ese servidor dhcp:
-ifconfig enp0s8 192.168.2.1
-
-Para fijar la interfaz al servidor dhcp hay que editar el fichero
-/etc/defaults/isc-dhp-sever de esta forma:
-INTERFACES="enp0s8"
-(En el caso de tener Interfacev4 tambien puede hacerse)
-
-A continuación editamos el fichero /etc/dhcp/dhcpd.conf:
-option domain-name "proyecto.org" //Opcional
-Para proporcionar un nombrea al dominio.
-option domain-name-servers 192.168.2.1
-Para asociarle una IP al domino.
-
-Creamos la subred de IPs que asignaremos a debian 3 y debian4:
-subnet 192.168.2.0 netmask 255.255.255.0{
-range 192.168.2.3 192.168.2.20
-}
-Para poder utilizar debian6 siempre como pasarela
-host debian6{
-hardware ethernet "AÑADIR MAC"; //La MAC de la tarjeta de red.
-fixed-address 192.168.1.5;
-}
-De esta forma hemos asociado a debian6 una IP fija.
-En el fichero de Inifterfaces de los nodos que conectaremos al servidor.
+Debian 6:
 
 allow-hotplug enp0s3
 iface enp0s3 inet dhcp
 
-En este caso se encuentra en la Interfaz enp0s3 porque debian 3 y debian 4
-solo estan conectadas a una interfaz y en debian 6 es su primera red.
-
-En debian1 instalar tcpdump para poder ver el tráfico tcp que circula a través de esta máquina.
-Utilizar  el comando tcp para ver el flujo:
-tcpdump -n -i  INTERFAZ icmp
-
-Para que Debian 1 pueda actuar de router debemos confirmar que esta activo ip_forward.
-Para ello hacemos:
-echo 1 > /proc/sys/net/ipv4/ip_forward
-Y para hacerlo permanente modificamos en fichero:
-/etc/sysctl.conf
-Descomentando la línea net.ipv4.ip_forward=1
-
-Posteriormente ejecutamos los comandos:
-iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
-iptables -A FORWARD -i enp0s8 -j ACCEPT
-****
-La explicacion no tengo ni idea jajaja saludos soy el Chocu
-https://how-to.fandom.com/wiki/How_to_set_up_a_NAT_router_on_a_Linux-based_computer
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.3.6
+netmask 255.255.255.0
