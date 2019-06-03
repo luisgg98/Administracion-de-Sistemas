@@ -81,6 +81,16 @@ Y para hacerlo permanente modificamos en fichero:
 /etc/sysctl.conf
 
 CONFIGURACIÓN ROUTER 
+iptables -F
+iptables -t nat -F
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+ 
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
 
 Para que Debian 1 pueda actuar de router debemos confirmar que esta activo ip_forward.
 Para ello hacemos:
@@ -89,21 +99,35 @@ Y para hacerlo permanente modificamos en fichero /etc/sysctl.conf descomentando 
 net.ipv4.ip_forward=1
 
 Para permitir que las redes internas tuvieran acceso internet ejecutamos los comandos iptables:
-iptables -t nat -A POSTROUTING -s 192.168.3.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
-iptables -t nat -A POSTROUTING -s 192.168.2.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
-iptables -t nat -A POSTROUTING -s 192.168.1.0/24 -o enp0s3 -j SNAT --to 10.0.2.15
+iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
+iptables -A FORWARD -o enp0s3 -s 192.168.0.0/22 -m conntrack --ctstate NEW -j ACCEPT
+
 
 De esta forma todo paquete que sale de la interfaz enp0s3 hacia internet toma la dirección
 ip del router.
-Enmascararamos el tráfico de salida sin perturbar el tráfico original.
-iptables -t nat -A POSTROUTING -j MASQUERADE
+
 
 Para finalizar rechazamos de forma silenciosa cualquier tipo de tráfico desde enp0s3 (internet) y enp0s10 (HOST)
 que no cumpla los requisitos de este trabajo:
-iptables -A INPUT -i enp0s3 -j DROP			
-iptables -A INPUT -i enp0s10 -j DROP	
+
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A OUTPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A FORWARD -m conntrack --ctstate INVALID -j DROP
+	
 Vease que no estamos denegando cadenas FORWARD por lo tanto las máquinas de las redes internas siguen teniendo acceso
 a internet.
+
+iptables -A INPUT -i enp0s8 -s 192.168.1.0/24 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -i enp0s8 -s 192.168.1.0/24 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i enp0s9-s 192.168.2.0/23 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -i enp0s9 -s 192.168.2.0/23 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -i enp0s9 -s 192.168.2.0/23 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+
+
+Sistema de Logging para detectar errores:
+iptables -A INPUT -j LOG --log-level DEBUG --log-prefix 'CONTENIDO INPUT:'
+iptables -A OUTPUT -j LOG --log-level DEBUG --log-prefix 'CONTENIDO OUTPUT:'
+iptables -A FORWARD -j LOG --log-level DEBUG --log-prefix 'CONTENIDO FORWARD:'
 
 SERVIDOR SSH
 
@@ -114,20 +138,54 @@ Configuraremos el servidor para no poder acceder a root desde ssh.Para ello edit
 
 En debian 1 configuramos el Firewall:
 
+Para que las reglas de iptables se mantengan al apagar los equipos,
+iinstalamos el paquete iiptables persistent que se encarga de hacer un restore de las reglas
+de iptables que guardamos.
+sudo apt install iptables-persistent
+
+Cada vez que se modifiquen las reglas a usar, se deben guardar en el fichero que almacena las reglas a ejecutar al arrarcar.
+Esto se puede hacer volcando la salida del comando iptables-save en el fichero correspondiente 
+/etc/iptables/rules.v4 o /etc/iptables/rules.v6
+iptables-save > /etc/iptables/rules.v4
+
 Para desviar todo el tráfico SSH hacia la máquina Debian 5 debemos ejecutar:
-iptables -t nat -A PREROUTING -i enp0s3 -p tcp -m tcp --dport 22 -j DNAT --to-destination 192.168.3.5:22	//Desde Internet
 iptables -t nat -A PREROUTING -d 192.168.10.10 -i enp0s10 -p tcp -m tcp --dport 22 -j DNAT --to-destination 192.168.3.5:22	//Desde Host
 
 Para permitir conexiones al puerto 22 (SSH) ejecutamos el comando:
-iptables -A FORWARD -d 192.168.3.5 -p tcp --dport 22 -j ACCEPT
 
-iptables -A INPUT -i enp0s3 -p tcp --dport 22 -j ACCEPT	//Permitir trafico SSH desde internet
-iptables -A INPUT -i enp0s10 -p tcp --dport 22 -j ACCEPT//Permitir trafico SSH desde host
+iptables -A FORWARD -d 192.168.3.5 -p tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+//Permitir trafico SSH desde internet
+iptables -A INPUT -i enp0s3 -p tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT	
+//Permitir trafico SSH desde host
+iptables -A INPUT -i enp0s10 -p tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+
+SERVIDOR APACHE:
+iptables -A FORWARD -d 192.168.1.2 -p tcp --dport 80 -j ACCEPT	//HTTP
+iptables -A FORWARD -d 192.168.1.2 -p tcp --dport 443 -j ACCEPT	//HTTPS
+
+iptables -t nat -A PREROUTING -d 192.168.10.10 -i enp0s10 -p tcp -m tcp --dport 80 -j DNAT --to-destination 192.168.1.2:80	//HTTP
+iptables -t nat -A PREROUTING -d 192.168.10.10 -i enp0s10 -p tcp -m tcp --dport 443 -j DNAT --to-destination 192.168.1.2:443	//HTTPS
+
+
+iptables -A INPUT -i enp0s3 -p tcp --dport 80 -j ACCEPT	//Permitir trafico HTTP desde internet (enp0s3 = interfaz NAT a internet)
+iptables -A INPUT -i enp0s3 -p tcp --dport 443 -j ACCEPT//Permitir trafico HTTPS desde internet
+iptables -A INPUT -i enp0s10 -p tcp --dport 80 -j ACCEPT//Permitir trafico HTTP desde host (enp0s10 = interfaz conectada a host-only network)
+iptables -A INPUT -i enp0s10 -p tcp --dport 443 -j ACCEPT//Permitir trafico HTTPS desde host
+
+apt install apache2
+Modificar el fichero ports.conf:
+Donde esta  Listen 80, sustituir por Listen<IP>:<Port> siendo Ip la ip con la que queremos acceder al servidor y Port el puerto.
+En este caso la ip sera la que tiene Debian 2 en su subred y el puerto sera el 80 para http y el 443 para https.
+Para reconocer el servidor en local, complementar con Listen 127.0.0.1:80 y/o
+Listen 127.0.0.1:443
 
 
 CONFIGURACIÓN FICHEROS DE INTERFACES
 Ficheros /etc/network/interfaces de cada máquina:
 Debian 1:
+
+allow-hotplug enp0s3
+iface enp0s3 inet dhcp
 
 auto enp0s8
 iface enp0s8 inet static
@@ -139,6 +197,11 @@ iface enp0s9 inet static
 address 192.168.2.1
 netmask 255.255.255.0
 up route add -net 192.168.3.0 netmask 255.255.255.0 gw 192.168.2.6 //Para utilizarlo de pasarela.
+
+auto enp0s10
+iface enp0s10 inet static
+address 192.168.10.10
+netmask 255.255.255.0
 
 Debian 2:
 
@@ -172,3 +235,13 @@ auto enp0s8
 iface enp0s8 inet static
 address 192.168.3.6
 netmask 255.255.255.0
+
+HOST:
+auto enp0s8
+iface enp0s8 inet static
+address 192.168.10.2
+netmask 255.255.255.0
+
+
+
+
